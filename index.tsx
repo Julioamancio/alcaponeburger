@@ -63,6 +63,41 @@ const DEFAULT_HERO_IMAGES = [
   "https://images.unsplash.com/photo-1551782450-a2132b4ba21d?auto=format&fit=crop&w=1920&q=80"
 ];
 
+// --- Helper Functions ---
+
+const compressImage = (file: File, maxWidth: number, quality: number): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target?.result as string;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+
+        if (width > maxWidth) {
+          height = (height * maxWidth) / width;
+          width = maxWidth;
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+            ctx.drawImage(img, 0, 0, width, height);
+            resolve(canvas.toDataURL('image/jpeg', quality));
+        } else {
+            reject(new Error("Canvas context not available"));
+        }
+      };
+      img.onerror = (error) => reject(error);
+    };
+    reader.onerror = (error) => reject(error);
+  });
+};
+
 // --- Types ---
 
 type UserRole = 'admin' | 'client' | 'guest';
@@ -535,17 +570,23 @@ export default function App() {
     setLoginError('');
   };
 
-  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64 = reader.result as string;
-        setAppLogo(base64);
-        localStorage.setItem('capone_logo', base64);
-        alert('Logo atualizada com sucesso!');
-      };
-      reader.readAsDataURL(file);
+      try {
+        // Compress image to ensure it saves. 500px width, 0.9 quality
+        const compressedBase64 = await compressImage(file, 500, 0.9);
+        setAppLogo(compressedBase64);
+        try {
+            localStorage.setItem('capone_logo', compressedBase64);
+            alert('Logo atualizada e salva com sucesso!');
+        } catch (storageError) {
+            alert('Logo atualizada, mas não foi possível salvar no navegador (limite excedido). Tente uma imagem menor.');
+        }
+      } catch (error) {
+        console.error("Error processing logo", error);
+        alert("Erro ao processar imagem da logo.");
+      }
     }
   };
 
@@ -582,21 +623,17 @@ export default function App() {
     }
   };
 
-  const handleHeroImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleHeroImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      // Size check: limit to 10MB (requested by user)
-      if (file.size > 10 * 1024 * 1024) {
-        alert("A imagem selecionada é muito grande. Por favor selecione uma imagem com menos de 10MB.");
-        return;
+      try {
+        // Compress image. 1920px max width, 0.7 quality to save space
+        const compressedBase64 = await compressImage(file, 1920, 0.7);
+        setHeroImages(prev => [...prev, compressedBase64]);
+      } catch (error) {
+        console.error("Error processing banner", error);
+        alert("Erro ao processar imagem do banner.");
       }
-
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64 = reader.result as string;
-        setHeroImages(prev => [...prev, base64]);
-      };
-      reader.readAsDataURL(file);
     }
   };
 
