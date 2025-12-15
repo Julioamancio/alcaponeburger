@@ -545,11 +545,13 @@ const AuthView: React.FC<AuthViewProps> = ({
         <div id="google-btn-container" ref={googleBtnRef}></div>
       </form>
       
+      {/*
       <div className="mt-6 text-center text-xs text-gray-500 border-t border-capone-700/50 pt-4">
         <p className="mb-1 text-gray-400">Credenciais de Teste:</p>
         //<p>Admin: <span className="text-capone-gold font-mono">admin@alcapone.com</span> / <span className="text-capone-gold font-mono">admin123</span></p>
         //<p>Cliente: <span className="text-capone-gold font-mono">user@email.com</span> / <span className="text-capone-gold font-mono">123456</span></p>
       </div>
+      */}
     </Card>
   </div>
   );
