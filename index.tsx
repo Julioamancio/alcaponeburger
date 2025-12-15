@@ -1089,7 +1089,7 @@ export default function App() {
     if (loginEmail.toLowerCase().includes('admin')) {
       // Allow multiple password variations for easier testing
       if (['admin123', 'admin', '123456'].includes(loginPass)) {
-        loginSuccess({ id: 'admin-1', name: 'Al Capone Admin', email: loginEmail, role: 'admin' }, 'admin-dash');
+        loginSuccess({ id: 'admin-1', name: 'Al Capone Burger Admin', email: loginEmail, role: 'admin' }, 'admin-dash');
         return;
       } else {
         setLoginError('Senha de administrador incorreta (Tente: admin123).');
@@ -1318,7 +1318,7 @@ export default function App() {
           <div className="w-10 h-10 rounded-full overflow-hidden border border-capone-gold/50 group-hover:border-capone-gold transition-colors">
             <img src={normalizeMediaUrl(appLogo)} alt="Logo" className="w-full h-full object-cover" crossOrigin="anonymous" />
           </div>
-          <span className="font-serif font-bold text-xl tracking-wider hidden sm:block text-capone-gold">AL CAPONE</span>
+          <span className="font-serif font-bold text-xl tracking-wider hidden sm:block text-capone-gold">AL CAPONE BURGER</span>
         </div>
       </div>
 
@@ -2322,7 +2322,7 @@ export default function App() {
                   
                   <div className="absolute bottom-0 left-0 p-8 z-10 max-w-2xl animate-in slide-in-from-bottom-10 fade-in duration-700">
                       <h1 className="text-4xl sm:text-5xl md:text-7xl font-serif font-bold text-white mb-4 drop-shadow-lg">
-                          <span className="text-capone-gold">Al</span> Capone
+                          <span className="text-capone-gold">Al</span> Capone Burger
                       </h1>
                       <p className="text-base sm:text-lg md:text-xl text-gray-200 mb-6 drop-shadow-md font-medium">
                           O verdadeiro sabor da máfia. Burgers artesanais, ingredientes proibidos e uma experiência criminosa.
@@ -2559,7 +2559,7 @@ export default function App() {
           <div>
             <div className="flex items-center gap-3 mb-4">
               <img src={normalizeMediaUrl(appLogo)} alt="Logo" className="w-16 h-16 rounded-full object-cover" crossOrigin="anonymous" />
-              <span className="font-serif font-bold text-2xl text-capone-gold">AL CAPONE</span>
+              <span className="font-serif font-bold text-2xl text-capone-gold">AL CAPONE BURGER</span>
             </div>
             <p className="text-sm">A melhor hamburgueria temática de Belo Horizonte. Sabor criminosamente bom.</p>
           </div>
