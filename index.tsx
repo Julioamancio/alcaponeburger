@@ -566,6 +566,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ user, onSaveProfile }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [name, setName] = useState(user.name);
   const [phone, setPhone] = useState(user.phone || '');
+  const [avatarUrl, setAvatarUrl] = useState(user.avatar || '');
   
   // Address Modal State
   const [showAddressModal, setShowAddressModal] = useState(false);
@@ -583,10 +584,11 @@ const ProfileView: React.FC<ProfileViewProps> = ({ user, onSaveProfile }) => {
   useEffect(() => {
       setName(user.name);
       setPhone(user.phone || '');
+      setAvatarUrl(user.avatar || '');
   }, [user]);
 
   const handleSaveProfile = () => {
-    onSaveProfile({ ...user, name, phone });
+    onSaveProfile({ ...user, name, phone, avatar: avatarUrl ? normalizeMediaUrl(avatarUrl) : user.avatar });
     setIsEditing(false);
   };
 
@@ -623,7 +625,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ user, onSaveProfile }) => {
         <Card className="p-6 md:col-span-1 h-fit">
           <div className="flex flex-col items-center text-center mb-6">
             <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-capone-gold mb-4">
-              <img src={user.avatar || "https://ui-avatars.com/api/?name=" + user.name} alt="Avatar" className="w-full h-full object-cover" />
+              <img src={normalizeMediaUrl(user.avatar || ("https://ui-avatars.com/api/?name=" + user.name))} alt="Avatar" className="w-full h-full object-cover" crossOrigin="anonymous" />
             </div>
             {!isEditing ? (
               <>
@@ -652,6 +654,16 @@ const ProfileView: React.FC<ProfileViewProps> = ({ user, onSaveProfile }) => {
                     value={phone} 
                     onChange={e => setPhone(e.target.value)} 
                     placeholder="(00) 00000-0000"
+                    className="w-full bg-capone-900 border border-capone-700 rounded px-2 py-1 text-white text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 block text-left mb-1">Avatar (URL)</label>
+                  <input 
+                    type="url" 
+                    value={avatarUrl} 
+                    onChange={e => setAvatarUrl(e.target.value)} 
+                    placeholder="https://..."
                     className="w-full bg-capone-900 border border-capone-700 rounded px-2 py-1 text-white text-sm"
                   />
                 </div>
@@ -854,11 +866,11 @@ const AdminBanners: React.FC<AdminBannersProps> = ({
                ) : (
                  <img src={media} alt={`Banner ${index}`} className="w-full h-full object-cover" crossOrigin="anonymous" />
                )}
-               <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4">
-                 <Button variant="danger" onClick={() => handleRemoveHeroImage(index)}>
-                   <Trash2 size={20} /> Remover
-                 </Button>
-               </div>
+                <div className="absolute inset-0 bg-black/50 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4">
+                  <Button variant="danger" onClick={() => handleRemoveHeroImage(index)}>
+                    <Trash2 size={20} /> Remover
+                  </Button>
+                </div>
                <div className="absolute bottom-2 left-2 bg-black/70 px-2 py-1 rounded text-xs text-white flex items-center gap-1">
                  {renderVideo && <Video size={12} className="text-capone-gold" />} Slide {index + 1}
                </div>
@@ -1213,27 +1225,43 @@ export default function App() {
       return;
     }
 
+    let next: Product[] = [];
     if (product.id) {
-      // Edit
-      setProducts(prev => prev.map(p => p.id === product.id ? product : p));
+      next = products.map(p => p.id === product.id ? product : p);
     } else {
-      // Create
       const newProduct = { ...product, id: Math.random().toString() };
-      setProducts(prev => [...prev, newProduct]);
+      next = [...products, newProduct];
     }
+    setProducts(next);
+    syncProductsRemote(next);
     setIsProductModalOpen(false);
     setEditingProduct(null);
   };
 
   const handleDeleteProduct = (id: string) => {
     if (window.confirm("Tem certeza que deseja excluir este produto?")) {
-      setProducts(prev => prev.filter(p => p.id !== id));
+      const next = products.filter(p => p.id !== id);
+      setProducts(next);
+      syncProductsRemote(next);
     }
   };
 
   const openProductModal = (product?: Product) => {
     setEditingProduct(product || null);
     setIsProductModalOpen(true);
+  };
+
+  const syncProductsRemote = async (nextProducts: Product[]) => {
+    try {
+      const resp = await fetch('/api/products', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ products: nextProducts })
+      });
+      if (!resp.ok) throw new Error('remote update failed');
+    } catch (err) {
+      console.warn('Falha ao sincronizar catálogo remoto. Configure GITHUB_TOKEN no Vercel.', err);
+    }
   };
 
   const addToCart = (product: Product) => {
@@ -1357,6 +1385,34 @@ export default function App() {
         </button>
         <button onClick={() => setView('admin-settings')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${view === 'admin-settings' ? 'bg-capone-gold text-capone-900 font-bold' : 'text-gray-400 hover:bg-capone-800'}`}>
           <Settings size={20} /> Ajustes
+        </button>
+      </div>
+    </div>
+  );
+
+  const ClientSidebar = () => (
+    <div className={`fixed inset-y-0 left-0 w-64 bg-capone-900 border-r border-capone-700 transform ${isMenuOpen ? 'translate-x-0' : '-translate-x-full'} md:hidden transition-transform duration-300 z-40 pt-20`}>
+      <div className="px-4 py-2 space-y-2">
+        <div className="flex items-center gap-3 px-4 py-3 border-b border-capone-700">
+          {user?.avatar ? (
+            <img src={normalizeMediaUrl(user.avatar)} className="w-8 h-8 rounded-full border border-capone-gold" crossOrigin="anonymous" />
+          ) : (
+            <User size={16} />
+          )}
+          <div className="flex-1">
+            <span className="block text-white text-sm">{user?.name || 'Cliente'}</span>
+            <button onClick={() => { setView('profile'); setIsMenuOpen(false); }} className="text-[10px] text-capone-gold text-left hover:underline">Meu Perfil</button>
+          </div>
+        </div>
+
+        <button onClick={() => { setView('home'); setIsMenuOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${view === 'home' ? 'bg-capone-gold text-capone-900 font-bold' : 'text-gray-400 hover:bg-capone-800'}`}>
+          <ChefHat size={20} /> Cardápio
+        </button>
+        <button onClick={() => { setView('orders'); setIsMenuOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${view === 'orders' ? 'bg-capone-gold text-capone-900 font-bold' : 'text-gray-400 hover:bg-capone-800'}`}>
+          <ShoppingBag size={20} /> Meus Pedidos
+        </button>
+        <button onClick={() => { handleLogout(); setIsMenuOpen(false); }} className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-gray-400 hover:bg-capone-800 transition-colors">
+          <LogOut size={20} /> Sair
         </button>
       </div>
     </div>
@@ -2454,6 +2510,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-capone-900 text-gray-100 font-sans relative">
       <Navbar />
+      {user && user.role === 'client' && <ClientSidebar />}
       <main className="pt-20 min-h-screen">
         {view === 'home' && <ClientHome />}
         {view === 'cart' && <CartView />}
