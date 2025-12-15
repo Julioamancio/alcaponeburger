@@ -1363,7 +1363,7 @@ export default function App() {
   // --- Admin Screens ---
 
   const AdminSidebar = () => (
-    <div className={`fixed inset-y-0 left-0 w-64 bg-capone-900 border-r border-capone-700 transform ${isMenuOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 transition-transform duration-300 z-40 pt-20`}>
+    <div className={`fixed inset-y-0 left-0 w-64 bg-capone-900 border-r border-capone-700 transform ${isMenuOpen ? 'translate-x-0 pointer-events-auto' : '-translate-x-full pointer-events-none'} md:translate-x-0 md:pointer-events-auto transition-transform duration-300 z-40 pt-20`} aria-hidden={!isMenuOpen && window.innerWidth < 768}>
       <div className="px-4 py-2 space-y-2">
         <p className="px-4 text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Gerenciamento</p>
         <button onClick={() => setView('admin-dash')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${view === 'admin-dash' ? 'bg-capone-gold text-capone-900 font-bold' : 'text-gray-400 hover:bg-capone-800'}`}>
@@ -1391,7 +1391,7 @@ export default function App() {
   );
 
   const ClientSidebar = () => (
-    <div className={`fixed inset-y-0 left-0 w-64 bg-capone-900 border-r border-capone-700 transform ${isMenuOpen ? 'translate-x-0' : '-translate-x-full'} md:hidden transition-transform duration-300 z-40 pt-20`}>
+    <div className={`fixed inset-y-0 left-0 w-64 bg-capone-900 border-r border-capone-700 transform ${isMenuOpen ? 'translate-x-0 pointer-events-auto' : '-translate-x-full pointer-events-none'} md:hidden transition-transform duration-300 z-40 pt-20`} aria-hidden={!isMenuOpen}>
       <div className="px-4 py-2 space-y-2">
         <div className="flex items-center gap-3 px-4 py-3 border-b border-capone-700">
           {user?.avatar ? (
@@ -1927,8 +1927,35 @@ export default function App() {
           <Button onClick={() => openProductModal()}><Plus size={18} /> Novo Produto</Button>
         </div>
 
-        <div className="bg-capone-900 rounded-xl border border-capone-700 overflow-hidden">
-          <table className="w-full text-left">
+        {/* Mobile list */}
+        <div className="md:hidden space-y-3">
+          {products.map(product => (
+            <Card key={product.id} className="p-4 flex items-start gap-3">
+              <img src={normalizeMediaUrl(product.image) || 'https://via.placeholder.com/48'} className="w-12 h-12 rounded object-cover" crossOrigin="anonymous" />
+              <div className="flex-1">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h3 className="text-white font-semibold leading-tight">{product.name}</h3>
+                    <p className="text-gray-400 text-xs">{product.category}</p>
+                  </div>
+                  <span className="text-capone-gold font-serif font-bold">R$ {product.price.toFixed(2)}</span>
+                </div>
+                <div className="mt-3 flex gap-2">
+                  <button onClick={() => openProductModal(product)} className="px-3 py-2 text-xs bg-capone-800 hover:bg-capone-700 rounded text-gray-200 flex items-center gap-1">
+                    <Edit2 size={14} /> Editar
+                  </button>
+                  <button onClick={() => handleDeleteProduct(product.id)} className="px-3 py-2 text-xs bg-red-900/30 hover:bg-red-900/50 rounded text-red-300 flex items-center gap-1">
+                    <Trash2 size={14} /> Excluir
+                  </button>
+                </div>
+              </div>
+            </Card>
+          ))}
+        </div>
+
+        {/* Desktop/tablet table */}
+        <div className="hidden md:block bg-capone-900 rounded-xl border border-capone-700 overflow-x-auto">
+          <table className="min-w-full text-left">
             <thead className="bg-capone-800 text-gray-400 text-xs uppercase tracking-wider">
               <tr>
                 <th className="p-4">Produto</th>
@@ -1952,7 +1979,7 @@ export default function App() {
                       {product.available ? 'Disponível' : 'Esgotado'}
                     </span>
                   </td>
-                  <td className="p-4 text-right">
+                  <td className="p-4 text-right whitespace-nowrap">
                     <button 
                       onClick={() => openProductModal(product)} 
                       type="button"
@@ -2271,7 +2298,7 @@ export default function App() {
         <div className="pb-20 animate-in fade-in duration-500">
             {/* Hero Section */}
             {heroImages.length > 0 && (
-              <div className="relative h-[50vh] min-h-[400px] overflow-hidden bg-black">
+              <div className="relative h-[40vh] min-h-[280px] sm:min-h-[360px] md:min-h-[400px] overflow-hidden bg-black">
                   {heroImages.map((media, index) => (
                       <div 
                           key={index}
@@ -2294,10 +2321,10 @@ export default function App() {
                   ))}
                   
                   <div className="absolute bottom-0 left-0 p-8 z-10 max-w-2xl animate-in slide-in-from-bottom-10 fade-in duration-700">
-                      <h1 className="text-5xl md:text-7xl font-serif font-bold text-white mb-4 drop-shadow-lg">
+                      <h1 className="text-4xl sm:text-5xl md:text-7xl font-serif font-bold text-white mb-4 drop-shadow-lg">
                           <span className="text-capone-gold">Al</span> Capone
                       </h1>
-                      <p className="text-xl text-gray-200 mb-6 drop-shadow-md font-medium">
+                      <p className="text-base sm:text-lg md:text-xl text-gray-200 mb-6 drop-shadow-md font-medium">
                           O verdadeiro sabor da máfia. Burgers artesanais, ingredientes proibidos e uma experiência criminosa.
                       </p>
                       <Button onClick={() => document.getElementById('menu')?.scrollIntoView({behavior: 'smooth'})}>
@@ -2511,6 +2538,9 @@ export default function App() {
     <div className="min-h-screen bg-capone-900 text-gray-100 font-sans relative">
       <Navbar />
       {user && user.role === 'client' && <ClientSidebar />}
+      {isMenuOpen && (
+        <div className="fixed inset-0 bg-black/40 md:hidden z-30" onClick={() => setIsMenuOpen(false)} />
+      )}
       <main className="pt-20 min-h-screen">
         {view === 'home' && <ClientHome />}
         {view === 'cart' && <CartView />}

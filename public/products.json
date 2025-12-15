@@ -8,40 +8,24 @@
     "image": "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=800&q=80",
     "available": true
   },
-  {
-    "id": "2",
-    "name": "Prohibition Chicken",
-    "description": "Filé de frango empanado crocante, alface americana, picles e maionese de ervas.",
-    "price": 29.9,
-    "category": "Burgers",
-    "image": "https://images.unsplash.com/photo-1615297928064-24977384d0f5?auto=format&fit=crop&w=800&q=80",
-    "available": true
-  },
+
+ 
   {
     "id": "3",
-    "name": "Mafia Fries",
-    "description": "Batatas rústicas com páprica, cobertas com cheddar cremoso e farofa de bacon.",
-    "price": 18,
-    "category": "Sides",
-    "image": "https://images.unsplash.com/photo-1573080496987-aeb7d53385c7?auto=format&fit=crop&w=800&q=80",
-    "available": true
-  },
-  {
-    "id": "4",
-    "name": "Godfather Shake",
-    "description": "Milkshake de chocolate belga com borda de avelã e chantilly.",
-    "price": 22,
-    "category": "Drinks",
-    "image": "https://images.unsplash.com/photo-1572490122747-3968b75cc699?auto=format&fit=crop&w=800&q=80",
-    "available": true
-  },
-  {
-    "id": "5",
     "name": "Smugglers Smash",
     "description": "Dois burgers smash 90g, duplo queijo prato e molho da casa no pão brioche.",
     "price": 32.5,
     "category": "Burgers",
     "image": "https://images.unsplash.com/photo-1594212699903-ec8a3eca50f5?auto=format&fit=crop&w=800&q=80",
+    "available": true
+  },
+  {
+    "id": "3",
+    "name": "Godfather Shake",
+    "description": "Milkshake de chocolate belga com borda de avelã e chantilly.",
+    "price": 22,
+    "category": "Drinks",
+    "image": "https://images.unsplash.com/photo-1572490122747-3968b75cc699?auto=format&fit=crop&w=800&q=80",
     "available": true
   }
 ]

@@ -9,7 +9,7 @@ O sistema utiliza uma autenticação simulada para fins de demonstração. A sen
 ### Acesso Administrativo (Painel de Gestão)
 Para acessar o Dashboard, Pedidos e Produtos, o e-mail deve conter a palavra **"admin"**.
 *   **E-mail:** `admin@alcapone.com`
-*   **Senha:** `123456` (ou qualquer outra senha)
+*   **Senha:** `admin123` (ou qualquer outra senha)
 
 ### Acesso Cliente (Cardápio e Pedidos)
 Para acessar a visão de compra, use qualquer outro e-mail.
