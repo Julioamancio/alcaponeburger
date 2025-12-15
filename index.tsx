@@ -64,6 +64,8 @@ const DEFAULT_HERO_IMAGES = [
   "https://images.unsplash.com/photo-1551782450-a2132b4ba21d?auto=format&fit=crop&w=1920&q=80"
 ];
 
+const CONFIG_URL = (import.meta as any).env?.VITE_CONFIG_URL || '/config.json';
+
 // --- Helper Functions ---
 
 const compressImage = (file: File, maxWidth: number, quality: number): Promise<string> => {
@@ -103,6 +105,52 @@ const isVideo = (url: string) => {
   if (!url) return false;
   // Check for data URI video type or common extensions
   return url.startsWith('data:video') || url.match(/\.(mp4|webm|ogg|mov)$/i);
+};
+
+// Normalize external provider URLs (GitHub, Google Drive, etc.) to direct file links
+const normalizeGitHubRaw = (url: string) => {
+  try {
+    const u = new URL(url);
+    if (u.hostname === 'github.com' && u.pathname.includes('/blob/')) {
+      const parts = u.pathname.split('/');
+      // /<owner>/<repo>/blob/<branch>/<path>
+      const owner = parts[1];
+      const repo = parts[2];
+      const branch = parts[4];
+      const path = parts.slice(5).join('/');
+      return `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${path}`;
+    }
+    if (u.hostname === 'raw.githubusercontent.com' && u.pathname.includes('/blob/')) {
+      const newPath = u.pathname.replace('/blob/', '/');
+      return `https://raw.githubusercontent.com${newPath}`;
+    }
+  } catch {}
+  return url;
+};
+
+const normalizeDrive = (url: string) => {
+  try {
+    const u = new URL(url);
+    if (u.hostname === 'drive.google.com') {
+      // handle file/d/<id>/view links
+      const fileMatch = u.pathname.match(/\/file\/d\/([^/]+)\//);
+      const id = fileMatch ? fileMatch[1] : (u.searchParams.get('id') || '');
+      if (id) return `https://drive.google.com/uc?export=download&id=${id}`;
+    }
+  } catch {}
+  return url;
+};
+
+const normalizeMediaUrl = (url: string) => normalizeDrive(normalizeGitHubRaw(url));
+
+const shouldRenderVideo = (url: string) => {
+  const u = normalizeMediaUrl(url);
+  if (isVideo(u)) return true;
+  try {
+    const host = new URL(u).hostname;
+    if (host === 'drive.google.com') return true; // Prefer video for Drive assets
+  } catch {}
+  return false;
 };
 
 // --- Types ---
@@ -430,7 +478,7 @@ const AuthView: React.FC<AuthViewProps> = ({
     <Card className="w-full max-w-md p-8 relative z-10 border-capone-gold/30">
       <div className="flex flex-col items-center mb-8">
         <div className="w-48 h-48 rounded-full overflow-hidden border-4 border-capone-gold/30 shadow-2xl shadow-capone-gold/10 mb-4 bg-black">
-          <img src={appLogo} alt="Al Capone Burger" className="w-full h-full object-cover" />
+          <img src={normalizeMediaUrl(appLogo)} alt="Al Capone Burger" className="w-full h-full object-cover" crossOrigin="anonymous" />
         </div>
         <p className="text-gray-400 tracking-widest text-sm uppercase">Authentic Burger Mafia</p>
       </div>
@@ -793,13 +841,16 @@ const AdminBanners: React.FC<AdminBannersProps> = ({
       </Card>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-         {heroImages.map((media, index) => (
+         {heroImages.map((m, index) => {
+           const media = normalizeMediaUrl(m);
+           const renderVideo = shouldRenderVideo(media);
+           return (
            <Card key={index} className="overflow-hidden group relative">
              <div className="aspect-video relative bg-black">
-               {isVideo(media) ? (
-                 <video src={media} className="w-full h-full object-cover" muted loop playsInline autoPlay />
+               {renderVideo ? (
+                 <video src={media} className="w-full h-full object-cover" muted loop playsInline autoPlay crossOrigin="anonymous" />
                ) : (
-                 <img src={media} alt={`Banner ${index}`} className="w-full h-full object-cover" />
+                 <img src={media} alt={`Banner ${index}`} className="w-full h-full object-cover" crossOrigin="anonymous" />
                )}
                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4">
                  <Button variant="danger" onClick={() => handleRemoveHeroImage(index)}>
@@ -807,12 +858,12 @@ const AdminBanners: React.FC<AdminBannersProps> = ({
                  </Button>
                </div>
                <div className="absolute bottom-2 left-2 bg-black/70 px-2 py-1 rounded text-xs text-white flex items-center gap-1">
-                 {isVideo(media) && <Video size={12} className="text-capone-gold" />} Slide {index + 1}
+                 {renderVideo && <Video size={12} className="text-capone-gold" />} Slide {index + 1}
                </div>
              </div>
            </Card>
-         ))}
-      </div>
+         );})}
+          </div>
     </div>
   );
 };
@@ -883,7 +934,8 @@ export default function App() {
 
   // Logo State (Persistence)
   const [appLogo, setAppLogo] = useState(() => {
-    return localStorage.getItem('capone_logo') || DEFAULT_LOGO_URL;
+    const src = localStorage.getItem('capone_logo') || DEFAULT_LOGO_URL;
+    return normalizeMediaUrl(src);
   });
 
   // Admin Product Logic (Form State moved to App level to avoid remounting issues)
@@ -933,6 +985,25 @@ export default function App() {
       alert("Aviso: Limite de armazenamento do navegador excedido. Algumas imagens podem não ser salvas para a próxima sessão.");
     }
   }, [heroImages]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch(CONFIG_URL, { cache: 'no-store' });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.logo) {
+          const normalized = normalizeMediaUrl(data.logo);
+          setAppLogo(normalized);
+          try { localStorage.setItem('capone_logo', normalized); } catch {}
+        }
+        if (Array.isArray(data.banners) && data.banners.length) {
+          setHeroImages(data.banners);
+          try { localStorage.setItem('capone_hero_images', JSON.stringify(data.banners)); } catch {}
+        }
+      } catch {}
+    })();
+  }, []);
 
   // Sync Form Data with Editing Product
   useEffect(() => {
@@ -1038,6 +1109,14 @@ export default function App() {
         alert("Erro ao processar imagem da logo.");
       }
     }
+  };
+
+  const handleLogoUrlSave = (url: string) => {
+    if (!url) return;
+    const normalized = normalizeMediaUrl(url);
+    setAppLogo(normalized);
+    try { localStorage.setItem('capone_logo', normalized); } catch {}
+    alert('Logo atualizada por URL externa.');
   };
 
   const handleResetLogo = () => {
@@ -1186,7 +1265,7 @@ export default function App() {
           onClick={() => setView(user?.role === 'admin' ? 'admin-dash' : 'home')}
         >
           <div className="w-10 h-10 rounded-full overflow-hidden border border-capone-gold/50 group-hover:border-capone-gold transition-colors">
-            <img src={appLogo} alt="Logo" className="w-full h-full object-cover" />
+            <img src={normalizeMediaUrl(appLogo)} alt="Logo" className="w-full h-full object-cover" crossOrigin="anonymous" />
           </div>
           <span className="font-serif font-bold text-xl tracking-wider hidden sm:block text-capone-gold">AL CAPONE</span>
         </div>
@@ -1264,6 +1343,7 @@ export default function App() {
 
   const AdminSettings = () => {
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const [logoUrl, setLogoUrl] = useState('');
 
     const handleRestoreClick = () => {
       fileInputRef.current?.click();
@@ -1305,7 +1385,7 @@ export default function App() {
           <div className="space-y-6">
             <div className="flex flex-col items-center p-6 bg-capone-900 rounded-xl border border-dashed border-capone-700">
               <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-capone-gold mb-4 relative group">
-                <img src={appLogo} alt="Current Logo" className="w-full h-full object-cover" />
+                <img src={normalizeMediaUrl(appLogo)} alt="Current Logo" className="w-full h-full object-cover" crossOrigin="anonymous" />
                 <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                   <span className="text-white text-xs font-bold">Atual</span>
                 </div>
@@ -1326,6 +1406,17 @@ export default function App() {
                   >
                     <Upload size={18} /> Carregar Nova Logo
                   </label>
+                </div>
+
+                <div className="flex gap-2">
+                  <input 
+                    type="url" 
+                    value={logoUrl} 
+                    onChange={(e) => setLogoUrl(e.target.value)} 
+                    placeholder="https://link-da-logo"
+                    className="flex-1 bg-capone-900 border border-capone-700 rounded-lg px-4 py-2 text-white"
+                  />
+                  <Button onClick={() => handleLogoUrlSave(logoUrl)}>Salvar URL</Button>
                 </div>
                 
                 <Button 
@@ -1772,7 +1863,7 @@ export default function App() {
               {products.map(product => (
                 <tr key={product.id} className="hover:bg-capone-800/50 transition-colors">
                   <td className="p-4 flex items-center gap-3">
-                    <img src={product.image || 'https://via.placeholder.com/40'} className="w-10 h-10 rounded object-cover" />
+                    <img src={normalizeMediaUrl(product.image) || 'https://via.placeholder.com/40'} className="w-10 h-10 rounded object-cover" crossOrigin="anonymous" />
                     <span className="font-medium text-white">{product.name}</span>
                   </td>
                   <td className="p-4 text-gray-400 text-sm">{product.category}</td>
@@ -1935,7 +2026,7 @@ export default function App() {
             {/* Store Marker */}
             <div className="absolute top-[80%] left-[80%] -translate-x-1/2 -translate-y-1/2 flex flex-col items-center">
                <div className="w-8 h-8 bg-capone-900 rounded-full flex items-center justify-center border-2 border-capone-gold z-10">
-                 <img src={appLogo} className="w-6 h-6 rounded-full"/>
+                    <img src={normalizeMediaUrl(appLogo)} className="w-6 h-6 rounded-full" crossOrigin="anonymous" />
                </div>
                <span className="text-[10px] font-bold bg-black/80 px-1 rounded text-white mt-1">Loja</span>
             </div>
@@ -2179,7 +2270,7 @@ export default function App() {
                         {filteredProducts.map(product => (
                             <ProductCard 
                                 key={product.id} 
-                                product={product} 
+                                product={{...product, image: normalizeMediaUrl(product.image)}} 
                                 onAdd={addToCart} 
                             />
                         ))}
@@ -2357,7 +2448,7 @@ export default function App() {
         <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-8">
           <div>
             <div className="flex items-center gap-3 mb-4">
-              <img src={appLogo} alt="Logo" className="w-16 h-16 rounded-full object-cover" />
+              <img src={normalizeMediaUrl(appLogo)} alt="Logo" className="w-16 h-16 rounded-full object-cover" crossOrigin="anonymous" />
               <span className="font-serif font-bold text-2xl text-capone-gold">AL CAPONE</span>
             </div>
             <p className="text-sm">A melhor hamburgueria temática de Belo Horizonte. Sabor criminosamente bom.</p>
