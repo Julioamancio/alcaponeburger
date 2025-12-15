@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <rect width="256" height="256" rx="128" fill="#1a1a1a" stroke="#d4af37" stroke-width="6"/>
+  <circle cx="128" cy="128" r="90" fill="#262626" stroke="#d4af37" stroke-width="3"/>
+  <text x="128" y="118" text-anchor="middle" font-family="Playfair Display, serif" font-size="28" fill="#d4af37">AL CAPONE</text>
+  <text x="128" y="150" text-anchor="middle" font-family="Playfair Display, serif" font-size="20" fill="#d4af37">BURGER</text>
+</svg>

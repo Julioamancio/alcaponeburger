@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080">
+  <rect width="1920" height="1080" fill="#1a1a1a"/>
+  <g transform="translate(0,200)">
+    <rect x="560" y="300" width="800" height="80" rx="40" fill="#8B4513"/>
+    <rect x="600" y="260" width="720" height="60" rx="30" fill="#d4af37"/>
+    <rect x="600" y="380" width="720" height="60" rx="30" fill="#d4af37"/>
+    <rect x="620" y="220" width="680" height="80" rx="40" fill="#c8501f"/>
+  </g>
+  <text x="960" y="960" fill="#e5e5e5" font-size="44" text-anchor="middle" font-family="Playfair Display, serif">Uma oferta que você não pode recusar.</text>
+</svg>
