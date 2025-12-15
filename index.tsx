@@ -368,6 +368,445 @@ const WhatsAppButton = () => (
   </a>
 );
 
+// --- Extracted Components (Fixed focus issues) ---
+
+interface AuthViewProps {
+  loginEmail: string;
+  setLoginEmail: (val: string) => void;
+  loginPass: string;
+  setLoginPass: (val: string) => void;
+  showPassword: boolean;
+  setShowPassword: (val: boolean) => void;
+  rememberMe: boolean;
+  setRememberMe: (val: boolean) => void;
+  loginError: string;
+  handleLogin: (e: React.FormEvent) => void;
+  appLogo: string;
+  onGoogleLogin: (user: User) => void;
+}
+
+const AuthView: React.FC<AuthViewProps> = ({
+  loginEmail, setLoginEmail,
+  loginPass, setLoginPass,
+  showPassword, setShowPassword,
+  rememberMe, setRememberMe,
+  loginError, handleLogin,
+  appLogo, onGoogleLogin
+}) => {
+  const googleBtnRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    loadGoogleScript(() => {
+      initializeGoogleAuth((response: any) => {
+        const payload = decodeGoogleCredential(response.credential);
+        if (payload) {
+          const googleUser: User = {
+            id: payload.sub, // Google unique ID
+            name: payload.name,
+            email: payload.email,
+            role: 'client',
+            avatar: payload.picture
+          };
+          onGoogleLogin(googleUser);
+        }
+      });
+      
+      if (googleBtnRef.current) {
+        renderGoogleButton('google-btn-container');
+      }
+    });
+  }, [onGoogleLogin]);
+
+  return (
+  <div className="min-h-screen flex items-center justify-center bg-[url('https://images.unsplash.com/photo-1550547660-d9450f859349?auto=format&fit=crop&w=1920&q=80')] bg-cover bg-center">
+    <div className="absolute inset-0 bg-black/70 backdrop-blur-sm"></div>
+    <Card className="w-full max-w-md p-8 relative z-10 border-capone-gold/30">
+      <div className="flex flex-col items-center mb-8">
+        <div className="w-48 h-48 rounded-full overflow-hidden border-4 border-capone-gold/30 shadow-2xl shadow-capone-gold/10 mb-4 bg-black">
+          <img src={appLogo} alt="Al Capone Burger" className="w-full h-full object-cover" />
+        </div>
+        <p className="text-gray-400 tracking-widest text-sm uppercase">Authentic Burger Mafia</p>
+      </div>
+      
+      <form onSubmit={handleLogin} className="space-y-4">
+        {loginError && (
+          <div className="bg-red-900/50 border border-red-500 text-red-200 text-sm p-3 rounded-lg flex items-center gap-2">
+            <AlertCircle size={16} />
+            {loginError}
+          </div>
+        )}
+        <div>
+          <label className="block text-sm text-gray-400 mb-1">E-mail</label>
+          <input 
+            type="email" 
+            value={loginEmail}
+            onChange={e => setLoginEmail(e.target.value)}
+            className="w-full bg-capone-900 border border-capone-700 rounded-lg p-3 text-white focus:border-capone-gold outline-none transition-colors"
+            placeholder="seu@email.com"
+          />
+        </div>
+        <div>
+          <label className="block text-sm text-gray-400 mb-1">Senha</label>
+          <div className="relative">
+            <input 
+              type={showPassword ? "text" : "password"} 
+              value={loginPass}
+              onChange={e => setLoginPass(e.target.value)}
+              className="w-full bg-capone-900 border border-capone-700 rounded-lg p-3 text-white focus:border-capone-gold outline-none transition-colors pr-12"
+              placeholder="••••••••"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-capone-gold transition-colors"
+            >
+              {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+            </button>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+            <input 
+              type="checkbox" 
+              id="remember" 
+              checked={rememberMe}
+              onChange={(e) => setRememberMe(e.target.checked)}
+              className="w-4 h-4 rounded border-capone-700 bg-capone-900 text-capone-gold focus:ring-capone-gold"
+            />
+            <label htmlFor="remember" className="text-sm text-gray-400 cursor-pointer select-none">
+              Lembrar-me
+            </label>
+        </div>
+        
+        <Button type="submit" className="w-full py-3 text-lg font-serif">
+          Entrar
+        </Button>
+
+        <div className="relative my-6">
+          <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-capone-700"></div></div>
+          <div className="relative flex justify-center text-sm"><span className="px-2 bg-capone-800 text-gray-500">ou continue com</span></div>
+        </div>
+
+        <div id="google-btn-container" ref={googleBtnRef}></div>
+      </form>
+      
+      <div className="mt-6 text-center text-xs text-gray-500 border-t border-capone-700/50 pt-4">
+        <p className="mb-1 text-gray-400">Credenciais de Teste:</p>
+        <p>Admin: <span className="text-capone-gold font-mono">admin@alcapone.com</span> / <span className="text-capone-gold font-mono">admin123</span></p>
+        <p>Cliente: <span className="text-capone-gold font-mono">user@email.com</span> / <span className="text-capone-gold font-mono">123456</span></p>
+      </div>
+    </Card>
+  </div>
+  );
+};
+
+interface ProfileViewProps {
+  user: User;
+  onSaveProfile: (u: User) => void;
+}
+
+const ProfileView: React.FC<ProfileViewProps> = ({ user, onSaveProfile }) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [name, setName] = useState(user.name);
+  const [phone, setPhone] = useState(user.phone || '');
+  
+  // Address Modal State
+  const [showAddressModal, setShowAddressModal] = useState(false);
+  const [newAddress, setNewAddress] = useState<Partial<Address>>({
+    label: 'Casa',
+    zipCode: '',
+    street: '',
+    number: '',
+    neighborhood: '',
+    city: '',
+    state: ''
+  });
+
+  // Reset local state when user changes
+  useEffect(() => {
+      setName(user.name);
+      setPhone(user.phone || '');
+  }, [user]);
+
+  const handleSaveProfile = () => {
+    onSaveProfile({ ...user, name, phone });
+    setIsEditing(false);
+  };
+
+  const handleAddAddress = () => {
+    if (!newAddress.street || !newAddress.number || !newAddress.zipCode) {
+      alert("Preencha os campos obrigatórios.");
+      return;
+    }
+    const address: Address = {
+      id: Math.random().toString(),
+      ...newAddress as Address
+    };
+    const updatedAddresses = [...(user.addresses || []), address];
+    onSaveProfile({ ...user, addresses: updatedAddresses });
+    setShowAddressModal(false);
+    setNewAddress({ label: 'Casa', zipCode: '', street: '', number: '', neighborhood: '', city: '', state: '' });
+  };
+
+  const handleDeleteAddress = (id: string) => {
+    if (confirm('Excluir este endereço?')) {
+      const updatedAddresses = user.addresses?.filter(a => a.id !== id) || [];
+      onSaveProfile({ ...user, addresses: updatedAddresses });
+    }
+  };
+
+  return (
+    <div className="max-w-4xl mx-auto px-4 py-8 animate-in fade-in duration-500">
+      <h2 className="text-3xl font-serif text-white mb-8 flex items-center gap-3">
+        <User className="text-capone-gold"/> Meu Perfil
+      </h2>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        {/* Personal Info */}
+        <Card className="p-6 md:col-span-1 h-fit">
+          <div className="flex flex-col items-center text-center mb-6">
+            <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-capone-gold mb-4">
+              <img src={user.avatar || "https://ui-avatars.com/api/?name=" + user.name} alt="Avatar" className="w-full h-full object-cover" />
+            </div>
+            {!isEditing ? (
+              <>
+                <h3 className="text-xl font-bold text-white">{user.name}</h3>
+                <p className="text-gray-400 text-sm mb-1">{user.email}</p>
+                <p className="text-capone-gold text-sm font-mono">{user.phone || 'Sem telefone'}</p>
+                <Button variant="outline" className="mt-4 w-full" onClick={() => setIsEditing(true)}>
+                  <Edit2 size={14}/> Editar Dados
+                </Button>
+              </>
+            ) : (
+              <div className="w-full space-y-3">
+                <div>
+                  <label className="text-xs text-gray-500 block text-left mb-1">Nome</label>
+                  <input 
+                    type="text" 
+                    value={name} 
+                    onChange={e => setName(e.target.value)} 
+                    className="w-full bg-capone-900 border border-capone-700 rounded px-2 py-1 text-white text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 block text-left mb-1">Telefone</label>
+                  <input 
+                    type="tel" 
+                    value={phone} 
+                    onChange={e => setPhone(e.target.value)} 
+                    placeholder="(00) 00000-0000"
+                    className="w-full bg-capone-900 border border-capone-700 rounded px-2 py-1 text-white text-sm"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="secondary" className="flex-1 text-xs" onClick={() => setIsEditing(false)}>Cancelar</Button>
+                  <Button className="flex-1 text-xs" onClick={handleSaveProfile}>Salvar</Button>
+                </div>
+              </div>
+            )}
+          </div>
+        </Card>
+
+        {/* Addresses */}
+        <div className="md:col-span-2 space-y-6">
+          <div className="flex justify-between items-center">
+            <h3 className="text-xl font-bold text-white flex items-center gap-2">
+              <MapIcon size={20} className="text-gray-400"/> Meus Endereços
+            </h3>
+            <Button onClick={() => setShowAddressModal(true)} className="text-sm">
+              <Plus size={16}/> Novo Endereço
+            </Button>
+          </div>
+
+          <div className="grid gap-4">
+            {user.addresses?.map(addr => (
+              <Card key={addr.id} className="p-4 flex justify-between items-center">
+                <div className="flex items-start gap-4">
+                  <div className="p-3 bg-capone-900 rounded-full text-capone-gold">
+                    {addr.label.toLowerCase().includes('casa') ? <Home size={20}/> : <MapIcon size={20}/>}
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold text-capone-gold uppercase tracking-wider">{addr.label}</span>
+                    <p className="text-white font-medium">{addr.street}, {addr.number}</p>
+                    <p className="text-sm text-gray-400">{addr.neighborhood} - {addr.city}/{addr.state}</p>
+                    <p className="text-xs text-gray-500 mt-1">CEP: {addr.zipCode}</p>
+                  </div>
+                </div>
+                <button onClick={() => handleDeleteAddress(addr.id)} className="text-gray-600 hover:text-red-500 transition-colors p-2">
+                  <Trash2 size={18}/>
+                </button>
+              </Card>
+            ))}
+            {(!user.addresses || user.addresses.length === 0) && (
+              <div className="text-center py-8 border-2 border-dashed border-capone-800 rounded-xl text-gray-500">
+                <MapIcon size={32} className="mx-auto mb-2 opacity-50"/>
+                <p>Nenhum endereço cadastrado</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Address Modal */}
+      {showAddressModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <Card className="w-full max-w-lg p-6 bg-capone-900 border-capone-gold/50 shadow-2xl">
+            <h3 className="text-2xl font-serif text-white mb-6">Adicionar Endereço</h3>
+            <div className="space-y-4">
+              <div className="flex gap-4">
+                <div className="flex-1">
+                  <label className="text-xs text-gray-500 uppercase">Rótulo</label>
+                  <input 
+                    className="w-full bg-capone-800 border border-capone-700 rounded p-2 text-white" 
+                    placeholder="Ex: Casa, Trabalho"
+                    value={newAddress.label}
+                    onChange={e => setNewAddress({...newAddress, label: e.target.value})}
+                  />
+                </div>
+                <div className="w-1/3">
+                  <label className="text-xs text-gray-500 uppercase">CEP</label>
+                  <input 
+                    className="w-full bg-capone-800 border border-capone-700 rounded p-2 text-white" 
+                    placeholder="00000-000"
+                    value={newAddress.zipCode}
+                    onChange={e => setNewAddress({...newAddress, zipCode: e.target.value})}
+                  />
+                </div>
+              </div>
+              <div className="flex gap-4">
+                <div className="flex-[3]">
+                  <label className="text-xs text-gray-500 uppercase">Rua</label>
+                  <input 
+                    className="w-full bg-capone-800 border border-capone-700 rounded p-2 text-white" 
+                    value={newAddress.street}
+                    onChange={e => setNewAddress({...newAddress, street: e.target.value})}
+                  />
+                </div>
+                <div className="flex-1">
+                  <label className="text-xs text-gray-500 uppercase">Número</label>
+                  <input 
+                    className="w-full bg-capone-800 border border-capone-700 rounded p-2 text-white" 
+                    value={newAddress.number}
+                    onChange={e => setNewAddress({...newAddress, number: e.target.value})}
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs text-gray-500 uppercase">Bairro</label>
+                <input 
+                  className="w-full bg-capone-800 border border-capone-700 rounded p-2 text-white" 
+                  value={newAddress.neighborhood}
+                  onChange={e => setNewAddress({...newAddress, neighborhood: e.target.value})}
+                />
+              </div>
+              <div className="flex gap-4">
+                <div className="flex-[2]">
+                  <label className="text-xs text-gray-500 uppercase">Cidade</label>
+                  <input 
+                    className="w-full bg-capone-800 border border-capone-700 rounded p-2 text-white" 
+                    value={newAddress.city}
+                    onChange={e => setNewAddress({...newAddress, city: e.target.value})}
+                  />
+                </div>
+                <div className="flex-1">
+                  <label className="text-xs text-gray-500 uppercase">Estado</label>
+                  <input 
+                    className="w-full bg-capone-800 border border-capone-700 rounded p-2 text-white" 
+                    placeholder="UF"
+                    value={newAddress.state}
+                    onChange={e => setNewAddress({...newAddress, state: e.target.value})}
+                  />
+                </div>
+              </div>
+              <div className="flex gap-3 pt-4">
+                <Button variant="secondary" className="flex-1" onClick={() => setShowAddressModal(false)}>Cancelar</Button>
+                <Button className="flex-1" onClick={handleAddAddress}>Salvar Endereço</Button>
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
+    </div>
+  );
+};
+
+interface AdminBannersProps {
+  heroImages: string[];
+  handleAddHeroImage: (url: string) => void;
+  handleRemoveHeroImage: (index: number) => void;
+  handleHeroImageUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  handleResetHeroImages: () => void;
+}
+
+const AdminBanners: React.FC<AdminBannersProps> = ({
+  heroImages,
+  handleAddHeroImage,
+  handleRemoveHeroImage,
+  handleHeroImageUpload,
+  handleResetHeroImages
+}) => {
+  const [newUrl, setNewUrl] = useState('');
+
+  return (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h2 className="text-3xl font-serif text-white">Banners da Home</h2>
+        <Button variant="outline" onClick={handleResetHeroImages}><RotateCcw size={16} /> Restaurar Padrão</Button>
+      </div>
+
+      <Card className="p-6">
+        <h3 className="font-bold text-white mb-4">Adicionar Nova Imagem</h3>
+        <div className="flex flex-col md:flex-row gap-4 mb-4">
+          <div className="flex-1 flex gap-2">
+            <input 
+              type="text" 
+              value={newUrl}
+              onChange={(e) => setNewUrl(e.target.value)}
+              placeholder="Cole a URL da imagem aqui..."
+              className="flex-1 bg-capone-900 border border-capone-700 rounded-lg px-4 py-2 text-white focus:border-capone-gold outline-none"
+            />
+            <Button onClick={() => { handleAddHeroImage(newUrl); setNewUrl(''); }}>Adicionar</Button>
+          </div>
+          <div className="relative">
+            <input 
+              type="file" 
+              accept="image/*"
+              onChange={handleHeroImageUpload}
+              className="hidden" 
+              id="banner-upload"
+            />
+            <label 
+              htmlFor="banner-upload"
+              className="flex items-center gap-2 px-4 py-2 bg-capone-800 border border-capone-700 text-gray-200 rounded-lg hover:bg-capone-700 cursor-pointer font-medium"
+            >
+              <Upload size={18} /> Upload do Computador
+            </label>
+          </div>
+        </div>
+      </Card>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+         {heroImages.map((img, index) => (
+           <Card key={index} className="overflow-hidden group relative">
+             <div className="aspect-video relative">
+               <img src={img} alt={`Banner ${index}`} className="w-full h-full object-cover" />
+               <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4">
+                 <Button variant="danger" onClick={() => handleRemoveHeroImage(index)}>
+                   <Trash2 size={20} /> Remover
+                 </Button>
+               </div>
+               <div className="absolute bottom-2 left-2 bg-black/70 px-2 py-1 rounded text-xs text-white">
+                 Slide {index + 1}
+               </div>
+             </div>
+           </Card>
+         ))}
+      </div>
+    </div>
+  );
+};
+
+
 // --- App ---
 
 export default function App() {
@@ -709,113 +1148,7 @@ export default function App() {
 
   // --- Views ---
 
-  const AuthView = () => {
-    const googleBtnRef = useRef<HTMLDivElement>(null);
-
-    useEffect(() => {
-      loadGoogleScript(() => {
-        initializeGoogleAuth((response: any) => {
-          const payload = decodeGoogleCredential(response.credential);
-          if (payload) {
-            const googleUser: User = {
-              id: payload.sub, // Google unique ID
-              name: payload.name,
-              email: payload.email,
-              role: 'client',
-              avatar: payload.picture
-            };
-            loginSuccess(googleUser, 'home');
-          }
-        });
-        
-        if (googleBtnRef.current) {
-          renderGoogleButton('google-btn-container');
-        }
-      });
-    }, []);
-
-    return (
-    <div className="min-h-screen flex items-center justify-center bg-[url('https://images.unsplash.com/photo-1550547660-d9450f859349?auto=format&fit=crop&w=1920&q=80')] bg-cover bg-center">
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm"></div>
-      <Card className="w-full max-w-md p-8 relative z-10 border-capone-gold/30">
-        <div className="flex flex-col items-center mb-8">
-          <div className="w-48 h-48 rounded-full overflow-hidden border-4 border-capone-gold/30 shadow-2xl shadow-capone-gold/10 mb-4 bg-black">
-            <img src={appLogo} alt="Al Capone Burger" className="w-full h-full object-cover" />
-          </div>
-          <p className="text-gray-400 tracking-widest text-sm uppercase">Authentic Burger Mafia</p>
-        </div>
-        
-        <form onSubmit={handleLogin} className="space-y-4">
-          {loginError && (
-            <div className="bg-red-900/50 border border-red-500 text-red-200 text-sm p-3 rounded-lg flex items-center gap-2">
-              <AlertCircle size={16} />
-              {loginError}
-            </div>
-          )}
-          <div>
-            <label className="block text-sm text-gray-400 mb-1">E-mail</label>
-            <input 
-              type="email" 
-              value={loginEmail}
-              onChange={e => setLoginEmail(e.target.value)}
-              className="w-full bg-capone-900 border border-capone-700 rounded-lg p-3 text-white focus:border-capone-gold outline-none transition-colors"
-              placeholder="seu@email.com"
-            />
-          </div>
-          <div>
-            <label className="block text-sm text-gray-400 mb-1">Senha</label>
-            <div className="relative">
-              <input 
-                type={showPassword ? "text" : "password"} 
-                value={loginPass}
-                onChange={e => setLoginPass(e.target.value)}
-                className="w-full bg-capone-900 border border-capone-700 rounded-lg p-3 text-white focus:border-capone-gold outline-none transition-colors pr-12"
-                placeholder="••••••••"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-capone-gold transition-colors"
-              >
-                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-              </button>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-             <input 
-               type="checkbox" 
-               id="remember" 
-               checked={rememberMe}
-               onChange={(e) => setRememberMe(e.target.checked)}
-               className="w-4 h-4 rounded border-capone-700 bg-capone-900 text-capone-gold focus:ring-capone-gold"
-             />
-             <label htmlFor="remember" className="text-sm text-gray-400 cursor-pointer select-none">
-               Lembrar-me
-             </label>
-          </div>
-          
-          <Button type="submit" className="w-full py-3 text-lg font-serif">
-            Entrar
-          </Button>
-
-          <div className="relative my-6">
-            <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-capone-700"></div></div>
-            <div className="relative flex justify-center text-sm"><span className="px-2 bg-capone-800 text-gray-500">ou continue com</span></div>
-          </div>
-
-          <div id="google-btn-container" ref={googleBtnRef}></div>
-        </form>
-        
-        <div className="mt-6 text-center text-xs text-gray-500 border-t border-capone-700/50 pt-4">
-          <p className="mb-1 text-gray-400">Credenciais de Teste:</p>
-          <p>Admin: <span className="text-capone-gold font-mono">admin@alcapone.com</span> / <span className="text-capone-gold font-mono">admin123</span></p>
-          <p>Cliente: <span className="text-capone-gold font-mono">user@email.com</span> / <span className="text-capone-gold font-mono">123456</span></p>
-        </div>
-      </Card>
-    </div>
-    );
-  };
+  // AuthView removed from here and extracted to top level
 
   const Navbar = () => (
     <nav className="fixed top-0 w-full z-50 bg-capone-900/90 backdrop-blur-md border-b border-capone-700 h-16 px-4 md:px-6 flex items-center justify-between">
@@ -902,67 +1235,7 @@ export default function App() {
     </div>
   );
 
-  const AdminBanners = () => {
-    const [newUrl, setNewUrl] = useState('');
-
-    return (
-      <div className="space-y-6">
-        <div className="flex justify-between items-center">
-          <h2 className="text-3xl font-serif text-white">Banners da Home</h2>
-          <Button variant="outline" onClick={handleResetHeroImages}><RotateCcw size={16} /> Restaurar Padrão</Button>
-        </div>
-
-        <Card className="p-6">
-          <h3 className="font-bold text-white mb-4">Adicionar Nova Imagem</h3>
-          <div className="flex flex-col md:flex-row gap-4 mb-4">
-            <div className="flex-1 flex gap-2">
-              <input 
-                type="text" 
-                value={newUrl}
-                onChange={(e) => setNewUrl(e.target.value)}
-                placeholder="Cole a URL da imagem aqui..."
-                className="flex-1 bg-capone-900 border border-capone-700 rounded-lg px-4 py-2 text-white focus:border-capone-gold outline-none"
-              />
-              <Button onClick={() => { handleAddHeroImage(newUrl); setNewUrl(''); }}>Adicionar</Button>
-            </div>
-            <div className="relative">
-              <input 
-                type="file" 
-                accept="image/*"
-                onChange={handleHeroImageUpload}
-                className="hidden" 
-                id="banner-upload"
-              />
-              <label 
-                htmlFor="banner-upload"
-                className="flex items-center gap-2 px-4 py-2 bg-capone-800 border border-capone-700 text-gray-200 rounded-lg hover:bg-capone-700 cursor-pointer font-medium"
-              >
-                <Upload size={18} /> Upload do Computador
-              </label>
-            </div>
-          </div>
-        </Card>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-           {heroImages.map((img, index) => (
-             <Card key={index} className="overflow-hidden group relative">
-               <div className="aspect-video relative">
-                 <img src={img} alt={`Banner ${index}`} className="w-full h-full object-cover" />
-                 <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4">
-                   <Button variant="danger" onClick={() => handleRemoveHeroImage(index)}>
-                     <Trash2 size={20} /> Remover
-                   </Button>
-                 </div>
-                 <div className="absolute bottom-2 left-2 bg-black/70 px-2 py-1 rounded text-xs text-white">
-                   Slide {index + 1}
-                 </div>
-               </div>
-             </Card>
-           ))}
-        </div>
-      </div>
-    );
-  };
+  // AdminBanners removed from here and extracted to top level
 
   const AdminSettings = () => {
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -1983,231 +2256,27 @@ export default function App() {
     );
   };
 
-  const ProfileView = () => {
-    if (!user) return null;
-
-    const [isEditing, setIsEditing] = useState(false);
-    const [name, setName] = useState(user.name);
-    const [phone, setPhone] = useState(user.phone || '');
-    
-    // Address Modal State
-    const [showAddressModal, setShowAddressModal] = useState(false);
-    const [newAddress, setNewAddress] = useState<Partial<Address>>({
-      label: 'Casa',
-      zipCode: '',
-      street: '',
-      number: '',
-      neighborhood: '',
-      city: '',
-      state: ''
-    });
-
-    const handleSaveProfile = () => {
-      saveUserProfile({ ...user, name, phone });
-      setIsEditing(false);
-    };
-
-    const handleAddAddress = () => {
-      if (!newAddress.street || !newAddress.number || !newAddress.zipCode) {
-        alert("Preencha os campos obrigatórios.");
-        return;
-      }
-      const address: Address = {
-        id: Math.random().toString(),
-        ...newAddress as Address
-      };
-      const updatedAddresses = [...(user.addresses || []), address];
-      saveUserProfile({ ...user, addresses: updatedAddresses });
-      setShowAddressModal(false);
-      setNewAddress({ label: 'Casa', zipCode: '', street: '', number: '', neighborhood: '', city: '', state: '' });
-    };
-
-    const handleDeleteAddress = (id: string) => {
-      if (confirm('Excluir este endereço?')) {
-        const updatedAddresses = user.addresses?.filter(a => a.id !== id) || [];
-        saveUserProfile({ ...user, addresses: updatedAddresses });
-      }
-    };
-
-    return (
-      <div className="max-w-4xl mx-auto px-4 py-8 animate-in fade-in duration-500">
-        <h2 className="text-3xl font-serif text-white mb-8 flex items-center gap-3">
-          <User className="text-capone-gold"/> Meu Perfil
-        </h2>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {/* Personal Info */}
-          <Card className="p-6 md:col-span-1 h-fit">
-            <div className="flex flex-col items-center text-center mb-6">
-              <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-capone-gold mb-4">
-                <img src={user.avatar || "https://ui-avatars.com/api/?name=" + user.name} alt="Avatar" className="w-full h-full object-cover" />
-              </div>
-              {!isEditing ? (
-                <>
-                  <h3 className="text-xl font-bold text-white">{user.name}</h3>
-                  <p className="text-gray-400 text-sm mb-1">{user.email}</p>
-                  <p className="text-capone-gold text-sm font-mono">{user.phone || 'Sem telefone'}</p>
-                  <Button variant="outline" className="mt-4 w-full" onClick={() => setIsEditing(true)}>
-                    <Edit2 size={14}/> Editar Dados
-                  </Button>
-                </>
-              ) : (
-                <div className="w-full space-y-3">
-                  <div>
-                    <label className="text-xs text-gray-500 block text-left mb-1">Nome</label>
-                    <input 
-                      type="text" 
-                      value={name} 
-                      onChange={e => setName(e.target.value)} 
-                      className="w-full bg-capone-900 border border-capone-700 rounded px-2 py-1 text-white text-sm"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs text-gray-500 block text-left mb-1">Telefone</label>
-                    <input 
-                      type="tel" 
-                      value={phone} 
-                      onChange={e => setPhone(e.target.value)} 
-                      placeholder="(00) 00000-0000"
-                      className="w-full bg-capone-900 border border-capone-700 rounded px-2 py-1 text-white text-sm"
-                    />
-                  </div>
-                  <div className="flex gap-2">
-                    <Button variant="secondary" className="flex-1 text-xs" onClick={() => setIsEditing(false)}>Cancelar</Button>
-                    <Button className="flex-1 text-xs" onClick={handleSaveProfile}>Salvar</Button>
-                  </div>
-                </div>
-              )}
-            </div>
-          </Card>
-
-          {/* Addresses */}
-          <div className="md:col-span-2 space-y-6">
-            <div className="flex justify-between items-center">
-              <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                <MapIcon size={20} className="text-gray-400"/> Meus Endereços
-              </h3>
-              <Button onClick={() => setShowAddressModal(true)} className="text-sm">
-                <Plus size={16}/> Novo Endereço
-              </Button>
-            </div>
-
-            <div className="grid gap-4">
-              {user.addresses?.map(addr => (
-                <Card key={addr.id} className="p-4 flex justify-between items-center">
-                  <div className="flex items-start gap-4">
-                    <div className="p-3 bg-capone-900 rounded-full text-capone-gold">
-                      {addr.label.toLowerCase().includes('casa') ? <Home size={20}/> : <MapIcon size={20}/>}
-                    </div>
-                    <div>
-                      <span className="text-xs font-bold text-capone-gold uppercase tracking-wider">{addr.label}</span>
-                      <p className="text-white font-medium">{addr.street}, {addr.number}</p>
-                      <p className="text-sm text-gray-400">{addr.neighborhood} - {addr.city}/{addr.state}</p>
-                      <p className="text-xs text-gray-500 mt-1">CEP: {addr.zipCode}</p>
-                    </div>
-                  </div>
-                  <button onClick={() => handleDeleteAddress(addr.id)} className="text-gray-600 hover:text-red-500 transition-colors p-2">
-                    <Trash2 size={18}/>
-                  </button>
-                </Card>
-              ))}
-              {(!user.addresses || user.addresses.length === 0) && (
-                <div className="text-center py-8 border-2 border-dashed border-capone-800 rounded-xl text-gray-500">
-                  <MapIcon size={32} className="mx-auto mb-2 opacity-50"/>
-                  <p>Nenhum endereço cadastrado</p>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Address Modal */}
-        {showAddressModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-            <Card className="w-full max-w-lg p-6 bg-capone-900 border-capone-gold/50 shadow-2xl">
-              <h3 className="text-2xl font-serif text-white mb-6">Adicionar Endereço</h3>
-              <div className="space-y-4">
-                <div className="flex gap-4">
-                  <div className="flex-1">
-                    <label className="text-xs text-gray-500 uppercase">Rótulo</label>
-                    <input 
-                      className="w-full bg-capone-800 border border-capone-700 rounded p-2 text-white" 
-                      placeholder="Ex: Casa, Trabalho"
-                      value={newAddress.label}
-                      onChange={e => setNewAddress({...newAddress, label: e.target.value})}
-                    />
-                  </div>
-                  <div className="w-1/3">
-                    <label className="text-xs text-gray-500 uppercase">CEP</label>
-                    <input 
-                      className="w-full bg-capone-800 border border-capone-700 rounded p-2 text-white" 
-                      placeholder="00000-000"
-                      value={newAddress.zipCode}
-                      onChange={e => setNewAddress({...newAddress, zipCode: e.target.value})}
-                    />
-                  </div>
-                </div>
-                <div className="flex gap-4">
-                  <div className="flex-[3]">
-                    <label className="text-xs text-gray-500 uppercase">Rua</label>
-                    <input 
-                      className="w-full bg-capone-800 border border-capone-700 rounded p-2 text-white" 
-                      value={newAddress.street}
-                      onChange={e => setNewAddress({...newAddress, street: e.target.value})}
-                    />
-                  </div>
-                  <div className="flex-1">
-                    <label className="text-xs text-gray-500 uppercase">Número</label>
-                    <input 
-                      className="w-full bg-capone-800 border border-capone-700 rounded p-2 text-white" 
-                      value={newAddress.number}
-                      onChange={e => setNewAddress({...newAddress, number: e.target.value})}
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label className="text-xs text-gray-500 uppercase">Bairro</label>
-                  <input 
-                    className="w-full bg-capone-800 border border-capone-700 rounded p-2 text-white" 
-                    value={newAddress.neighborhood}
-                    onChange={e => setNewAddress({...newAddress, neighborhood: e.target.value})}
-                  />
-                </div>
-                <div className="flex gap-4">
-                  <div className="flex-[2]">
-                    <label className="text-xs text-gray-500 uppercase">Cidade</label>
-                    <input 
-                      className="w-full bg-capone-800 border border-capone-700 rounded p-2 text-white" 
-                      value={newAddress.city}
-                      onChange={e => setNewAddress({...newAddress, city: e.target.value})}
-                    />
-                  </div>
-                  <div className="flex-1">
-                    <label className="text-xs text-gray-500 uppercase">Estado</label>
-                    <input 
-                      className="w-full bg-capone-800 border border-capone-700 rounded p-2 text-white" 
-                      placeholder="UF"
-                      value={newAddress.state}
-                      onChange={e => setNewAddress({...newAddress, state: e.target.value})}
-                    />
-                  </div>
-                </div>
-                <div className="flex gap-3 pt-4">
-                  <Button variant="secondary" className="flex-1" onClick={() => setShowAddressModal(false)}>Cancelar</Button>
-                  <Button className="flex-1" onClick={handleAddAddress}>Salvar Endereço</Button>
-                </div>
-              </div>
-            </Card>
-          </div>
-        )}
-      </div>
-    );
-  };
+  // ProfileView removed from here and extracted to top level
 
   // --- Main Render ---
 
   if (view === 'auth') {
-    return <AuthView />;
+    return (
+      <AuthView 
+        loginEmail={loginEmail}
+        setLoginEmail={setLoginEmail}
+        loginPass={loginPass}
+        setLoginPass={setLoginPass}
+        showPassword={showPassword}
+        setShowPassword={setShowPassword}
+        rememberMe={rememberMe}
+        setRememberMe={setRememberMe}
+        loginError={loginError}
+        handleLogin={handleLogin}
+        appLogo={appLogo}
+        onGoogleLogin={(u) => loginSuccess(u, 'home')}
+      />
+    );
   }
 
   // Admin Layout
@@ -2219,7 +2288,15 @@ export default function App() {
         <main className="md:ml-64 pt-20 p-6 min-h-screen transition-all">
           {view === 'admin-dash' && <AdminDashboard />}
           {view === 'admin-products' && renderAdminProducts()}
-          {view === 'admin-banners' && <AdminBanners />}
+          {view === 'admin-banners' && (
+            <AdminBanners 
+              heroImages={heroImages}
+              handleAddHeroImage={handleAddHeroImage}
+              handleRemoveHeroImage={handleRemoveHeroImage}
+              handleHeroImageUpload={handleHeroImageUpload}
+              handleResetHeroImages={handleResetHeroImages}
+            />
+          )}
           {view === 'admin-orders' && <AdminOrders />}
           {view === 'admin-integrations' && <AdminIntegrations />}
           {view === 'admin-settings' && <AdminSettings />}
@@ -2236,7 +2313,12 @@ export default function App() {
         {view === 'home' && <ClientHome />}
         {view === 'cart' && <CartView />}
         {view === 'orders' && <OrdersView />}
-        {view === 'profile' && <ProfileView />}
+        {view === 'profile' && user && (
+          <ProfileView 
+            user={user}
+            onSaveProfile={saveUserProfile}
+          />
+        )}
       </main>
       
       {/* Footer */}
