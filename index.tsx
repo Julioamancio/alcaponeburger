@@ -994,6 +994,13 @@ export default function App() {
         const res = await fetch(CONFIG_URL, { cache: 'no-store' });
         if (!res.ok) return;
         const data = await res.json();
+        if (data.version) {
+          const prev = localStorage.getItem('capone_config_version');
+          if (prev !== String(data.version)) {
+            try { localStorage.removeItem('capone_products'); } catch {}
+            localStorage.setItem('capone_config_version', String(data.version));
+          }
+        }
         if (data.logo) {
           const normalized = normalizeMediaUrl(data.logo);
           setAppLogo(normalized);
@@ -1002,6 +1009,20 @@ export default function App() {
         if (Array.isArray(data.banners) && data.banners.length) {
           setHeroImages(data.banners);
           try { localStorage.setItem('capone_hero_images', JSON.stringify(data.banners)); } catch {}
+        }
+      } catch {}
+    })();
+  }, []);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const r = await fetch('/products.json', { cache: 'no-store' });
+        if (!r.ok) return;
+        const remote = await r.json();
+        if (Array.isArray(remote) && remote.length) {
+          setProducts(remote);
+          try { localStorage.setItem('capone_products', JSON.stringify(remote)); } catch {}
         }
       } catch {}
     })();
