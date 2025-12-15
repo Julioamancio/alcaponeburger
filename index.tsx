@@ -46,7 +46,8 @@ import {
   Map as MapIcon,
   Navigation,
   Home,
-  Phone
+  Phone,
+  Video
 } from 'lucide-react';
 import { downloadBackupFile, restoreFromBackup } from './backup-service';
 import { loadGoogleScript, initializeGoogleAuth, renderGoogleButton, decodeGoogleCredential } from './google-api';
@@ -96,6 +97,12 @@ const compressImage = (file: File, maxWidth: number, quality: number): Promise<s
     };
     reader.onerror = (error) => reject(error);
   });
+};
+
+const isVideo = (url: string) => {
+  if (!url) return false;
+  // Check for data URI video type or common extensions
+  return url.startsWith('data:video') || url.match(/\.(mp4|webm|ogg|mov)$/i);
 };
 
 // --- Types ---
@@ -342,7 +349,7 @@ const ProductSkeleton = () => (
 
 const WhatsAppButton = () => (
   <a
-    href="https://wa.me/5531999999999" // Use o número real aqui
+    href="https://wa.me/5531982285267" // Use o número real aqui
     target="_blank"
     rel="noopener noreferrer"
     className="fixed bottom-6 right-6 z-50 bg-[#25D366] text-white p-4 rounded-full shadow-lg hover:bg-[#20bd5a] hover:scale-110 transition-all duration-300 flex items-center justify-center group"
@@ -755,14 +762,14 @@ const AdminBanners: React.FC<AdminBannersProps> = ({
       </div>
 
       <Card className="p-6">
-        <h3 className="font-bold text-white mb-4">Adicionar Nova Imagem</h3>
+        <h3 className="font-bold text-white mb-4">Adicionar Nova Mídia (Imagem ou Vídeo)</h3>
         <div className="flex flex-col md:flex-row gap-4 mb-4">
           <div className="flex-1 flex gap-2">
             <input 
               type="text" 
               value={newUrl}
               onChange={(e) => setNewUrl(e.target.value)}
-              placeholder="Cole a URL da imagem aqui..."
+              placeholder="Cole a URL da imagem ou vídeo aqui..."
               className="flex-1 bg-capone-900 border border-capone-700 rounded-lg px-4 py-2 text-white focus:border-capone-gold outline-none"
             />
             <Button onClick={() => { handleAddHeroImage(newUrl); setNewUrl(''); }}>Adicionar</Button>
@@ -770,7 +777,7 @@ const AdminBanners: React.FC<AdminBannersProps> = ({
           <div className="relative">
             <input 
               type="file" 
-              accept="image/*"
+              accept="image/*,video/*"
               onChange={handleHeroImageUpload}
               className="hidden" 
               id="banner-upload"
@@ -779,24 +786,28 @@ const AdminBanners: React.FC<AdminBannersProps> = ({
               htmlFor="banner-upload"
               className="flex items-center gap-2 px-4 py-2 bg-capone-800 border border-capone-700 text-gray-200 rounded-lg hover:bg-capone-700 cursor-pointer font-medium"
             >
-              <Upload size={18} /> Upload do Computador
+              <Upload size={18} /> Upload Mídia
             </label>
           </div>
         </div>
       </Card>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-         {heroImages.map((img, index) => (
+         {heroImages.map((media, index) => (
            <Card key={index} className="overflow-hidden group relative">
-             <div className="aspect-video relative">
-               <img src={img} alt={`Banner ${index}`} className="w-full h-full object-cover" />
+             <div className="aspect-video relative bg-black">
+               {isVideo(media) ? (
+                 <video src={media} className="w-full h-full object-cover" muted loop playsInline autoPlay />
+               ) : (
+                 <img src={media} alt={`Banner ${index}`} className="w-full h-full object-cover" />
+               )}
                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4">
                  <Button variant="danger" onClick={() => handleRemoveHeroImage(index)}>
                    <Trash2 size={20} /> Remover
                  </Button>
                </div>
-               <div className="absolute bottom-2 left-2 bg-black/70 px-2 py-1 rounded text-xs text-white">
-                 Slide {index + 1}
+               <div className="absolute bottom-2 left-2 bg-black/70 px-2 py-1 rounded text-xs text-white flex items-center gap-1">
+                 {isVideo(media) && <Video size={12} className="text-capone-gold" />} Slide {index + 1}
                </div>
              </div>
            </Card>
@@ -1066,12 +1077,26 @@ export default function App() {
     const file = e.target.files?.[0];
     if (file) {
       try {
-        // Compress image. 1920px max width, 0.7 quality to save space
-        const compressedBase64 = await compressImage(file, 1920, 0.7);
-        setHeroImages(prev => [...prev, compressedBase64]);
+        // Check if file is a video
+        if (file.type.startsWith('video/')) {
+          if (file.size > 5 * 1024 * 1024) { // 5MB limit
+            alert("Vídeos devem ter no máximo 5MB para serem salvos no navegador. Recomendamos usar URLs externas.");
+            return;
+          }
+          const base64 = await new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onload = (e) => resolve(e.target?.result as string);
+            reader.readAsDataURL(file);
+          });
+          setHeroImages(prev => [...prev, base64]);
+        } else {
+          // Compress image. 1920px max width, 0.7 quality to save space
+          const compressedBase64 = await compressImage(file, 1920, 0.7);
+          setHeroImages(prev => [...prev, compressedBase64]);
+        }
       } catch (error) {
         console.error("Error processing banner", error);
-        alert("Erro ao processar imagem do banner.");
+        alert("Erro ao processar arquivo do banner.");
       }
     }
   };
@@ -1986,76 +2011,71 @@ export default function App() {
   };
 
   const OrdersView = () => {
-    // ... (logic from previous step)
-    const userOrders = orders.filter(o => o.userId === user?.id).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-    const activeOrders = userOrders.filter(o => o.status !== 'completed' && o.status !== 'cancelled');
-    const pastOrders = userOrders.filter(o => o.status === 'completed' || o.status === 'cancelled');
+    if (!user) return <div className="p-8 text-center text-white">Faça login para ver seus pedidos.</div>;
+    
+    const myOrders = orders.filter(o => o.userId === user.id).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    const activeOrders = myOrders.filter(o => o.status !== 'completed' && o.status !== 'cancelled');
+    const pastOrders = myOrders.filter(o => o.status === 'completed' || o.status === 'cancelled');
 
     return (
-    <div className="max-w-4xl mx-auto px-4 py-8 animate-in fade-in duration-500">
-      
-      {/* Active Orders Section */}
-      {activeOrders.length > 0 && (
-        <div className="mb-12">
-          <h2 className="text-2xl font-serif text-white mb-6 flex items-center gap-2">
-             <Navigation className="text-capone-gold" /> Em Andamento
-          </h2>
-          {activeOrders.map(order => (
-            <OrderTracker key={order.id} order={order} />
-          ))}
-        </div>
-      )}
-
-      {/* History Section */}
-      <div>
-        <h2 className="text-2xl font-serif text-white mb-6 flex items-center gap-2">
-          <History className="text-gray-400" /> Histórico de Pedidos
+      <div className="max-w-4xl mx-auto px-4 py-8 animate-in fade-in duration-500">
+        <h2 className="text-3xl font-serif text-white mb-8 flex items-center gap-3">
+          <ShoppingBag className="text-capone-gold"/> Meus Pedidos
         </h2>
 
-        {pastOrders.length === 0 ? (
-          <div className="text-center py-12 bg-capone-800/50 rounded-xl border border-capone-700 border-dashed">
-             <p className="text-gray-500">Nenhum pedido anterior encontrado.</p>
+        {myOrders.length === 0 ? (
+          <div className="text-center py-20 bg-capone-800/30 rounded-xl border border-dashed border-capone-700">
+             <ShoppingBag size={64} className="mx-auto text-capone-700 mb-6" />
+             <h3 className="text-xl font-bold text-white mb-2">Você ainda não fez pedidos</h3>
+             <Button onClick={() => setView('home')}>Ver Cardápio</Button>
           </div>
         ) : (
-          <div className="grid gap-4">
-             {pastOrders.map(order => (
-               <Card key={order.id} className="p-4 hover:border-capone-gold/30 transition-colors">
-                  <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
-                     <div className="flex items-start gap-4">
-                        <div className={`w-12 h-12 rounded-lg flex items-center justify-center font-bold text-xl ${order.status === 'cancelled' ? 'bg-red-900/30 text-red-500' : 'bg-green-900/30 text-green-500'}`}>
-                           {order.status === 'cancelled' ? 'X' : <CheckCircle size={24} />}
-                        </div>
-                        <div>
-                           <div className="flex items-center gap-2">
-                              <h4 className="font-bold text-white text-lg">Pedido #{order.id.split('-')[1]}</h4>
-                              <span className={`text-[10px] px-2 py-0.5 rounded-full border ${order.status === 'cancelled' ? 'border-red-800 text-red-400 bg-red-900/20' : 'border-green-800 text-green-400 bg-green-900/20'}`}>
-                                 {order.status === 'cancelled' ? 'Cancelado' : 'Concluído'}
-                              </span>
-                           </div>
-                           <p className="text-sm text-gray-400">{new Date(order.createdAt).toLocaleDateString()} às {new Date(order.createdAt).toLocaleTimeString()}</p>
-                           <p className="text-xs text-gray-500 mt-1">{order.items.length} itens • {order.paymentMethod}</p>
-                        </div>
-                     </div>
-                     
-                     <div className="flex items-center justify-between md:flex-col md:items-end gap-2 pl-16 md:pl-0">
-                        <span className="font-mono text-capone-gold font-bold text-xl">R$ {order.total.toFixed(2)}</span>
-                        <Button variant="outline" className="text-xs py-1 h-8" onClick={() => {
-                           // Simple reorder logic: add items back to cart
-                           if(confirm('Deseja adicionar os mesmos itens ao carrinho?')) {
-                              setCart([...cart, ...order.items.map(i => ({...i, cartId: Math.random().toString()}))]);
-                              setView('cart');
-                           }
-                        }}>
-                           <RotateCcw size={14}/> Refazer Pedido
-                        </Button>
-                     </div>
-                  </div>
-               </Card>
-             ))}
+          <div className="space-y-8">
+            {activeOrders.length > 0 && (
+              <section>
+                <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                  <Clock className="text-capone-gold"/> Em Andamento
+                </h3>
+                {activeOrders.map(order => (
+                  <OrderTracker key={order.id} order={order} />
+                ))}
+              </section>
+            )}
+
+            {pastOrders.length > 0 && (
+              <section>
+                <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                  <History className="text-gray-400"/> Histórico
+                </h3>
+                <div className="space-y-4">
+                  {pastOrders.map(order => (
+                    <Card key={order.id} className="p-4 flex flex-col md:flex-row justify-between items-center gap-4 bg-capone-900 border-capone-800">
+                       <div className="flex items-center gap-4">
+                          <div className={`p-3 rounded-full ${order.status === 'completed' ? 'bg-green-900/20 text-green-400' : 'bg-red-900/20 text-red-400'}`}>
+                             {order.status === 'completed' ? <CheckCircle size={24}/> : <X size={24}/>}
+                          </div>
+                          <div>
+                             <div className="flex items-center gap-2">
+                               <p className="font-bold text-white">Pedido #{order.id.split('-')[1]}</p>
+                               <Badge status={order.status} />
+                             </div>
+                             <p className="text-sm text-gray-400">{new Date(order.createdAt).toLocaleDateString()} às {new Date(order.createdAt).toLocaleTimeString()}</p>
+                             <p className="text-sm text-gray-500">{order.items.length} itens • R$ {order.total.toFixed(2)}</p>
+                          </div>
+                       </div>
+                       <Button variant="outline" className="text-xs" onClick={() => {
+                          alert('Itens:\n' + order.items.map(i => `${i.quantity}x ${i.name}`).join('\n'));
+                       }}>
+                          Ver Itens
+                       </Button>
+                    </Card>
+                  ))}
+                </div>
+              </section>
+            )}
           </div>
         )}
       </div>
-    </div>
     );
   };
 
@@ -2081,13 +2101,24 @@ export default function App() {
         <div className="pb-20 animate-in fade-in duration-500">
             {/* Hero Section */}
             {heroImages.length > 0 && (
-              <div className="relative h-[50vh] min-h-[400px] overflow-hidden">
-                  {heroImages.map((img, index) => (
+              <div className="relative h-[50vh] min-h-[400px] overflow-hidden bg-black">
+                  {heroImages.map((media, index) => (
                       <div 
                           key={index}
                           className={`absolute inset-0 transition-opacity duration-1000 ${index === currentSlide ? 'opacity-100' : 'opacity-0'}`}
                       >
-                          <img src={img} alt="Hero" className="w-full h-full object-cover" />
+                          {isVideo(media) ? (
+                            <video 
+                                src={media} 
+                                className="w-full h-full object-cover" 
+                                autoPlay 
+                                muted 
+                                loop 
+                                playsInline 
+                            />
+                          ) : (
+                            <img src={media} alt="Hero" className="w-full h-full object-cover" />
+                          )}
                           <div className="absolute inset-0 bg-gradient-to-t from-capone-900 via-transparent to-transparent"></div>
                       </div>
                   ))}
@@ -2344,7 +2375,7 @@ export default function App() {
             <ul className="space-y-2 text-sm">
               <li>Rua da Bahia, 123 - Centro</li>
               <li>Belo Horizonte - MG</li>
-              <li>(31) 99999-9999</li>
+              <li>+55 (31) 98228-5267</li>
             </ul>
           </div>
           <div>
